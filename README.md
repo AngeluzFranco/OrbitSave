@@ -243,3 +243,65 @@ Issues y PRs bienvenidos. Durante el hackathon priorizamos:
 - Integración Soroban RPC real en `web/app/page.tsx`.
 - UI de countdown y panel de auditoría.
 - Script de despliegue automatizado y `.env` de ejemplo.
+
+
+# 🛠️ Herramientas Necesarias para el MVP de OrbitSave
+
+Aquí tienes el desglose de todas las herramientas y paquetes, divididos por capa.
+
+---
+
+## 1. 💡 Backend (Smart Contract - Lógica del Premio)
+
+El código del contrato se escribe en **Rust** y se compila para **WebAssembly (WASM)**.
+
+| Componente | Herramienta/Lenguaje | Paquete Clave | Propósito en el MVP |
+|-------------|----------------------|----------------|----------------------|
+| Lenguaje de Programación | Rust | N/A | Desarrollo del Smart Contract **PrizePool**. |
+| SDK de Soroban | Rust / Soroban | `soroban-sdk` | Proporciona las estructuras, APIs y macros para interactuar con el entorno Soroban (almacenamiento, llamadas, eventos, etc.). |
+| CLI / Herramienta de Dev | Soroban CLI | `soroban-cli` | Herramienta de línea de comandos para compilar el código, desplegar el contrato en Testnet, e invocar sus funciones (`init`, `draw`, `deposit` iniciales). |
+| Manejo de Tokens | Interfaz de Tokens | `soroban_sdk::token` | Necesario para modelar los depósitos/retiros de **USDC**. El contrato debe tener un cliente para invocar las funciones `transfer_from` y `transfer` del contrato del token. |
+
+---
+
+## 2. 🖥️ Frontend (Interfaz de Usuario - UX)
+
+El frontend es la interfaz que permite a los usuarios interactuar con la cadena a través de la wallet.
+
+| Componente | Herramienta/Framework | Paquete Clave | Propósito en el MVP |
+|-------------|----------------------|----------------|----------------------|
+| Framework Base | Next.js / React | `next`, `react` | Construcción de la interfaz de usuario (UI: conectar, depositar, countdown). |
+| Interacción con Stellar/Soroban | JavaScript SDK | `@stellar/stellar-sdk` | Paquete base para construir, firmar y enviar transacciones a la red Stellar/Soroban RPC. |
+| Conexión de Wallet | API de Freighter | `freighter-api` | Permite que la aplicación detecte la wallet **Freighter**, solicite la firma de transacciones (`signTransaction`) y obtenga la dirección pública del usuario. |
+| Llamadas al Contrato | TypeScript / JS | Generación a partir del WASM | Herramientas (a veces incluidas en template projects) para generar interfaces o *wrappers* del contrato Soroban para llamar a funciones como `deposit(..)` o `get_balance(..)`. |
+| Estilos (Opcional) | Tailwind CSS | `tailwindcss` | (Opcional, pero recomendado) Para implementar rápidamente el diseño **mobile-first** de la UI. |
+
+---
+
+## 3. 🌐 Redes y Servicios de Infraestructura
+
+Estos son los servicios de red que ya existen y que tu MVP debe consumir.
+
+| Componente | Servicio/Endpoint | Descripción |
+|-------------|------------------|--------------|
+| Red Blockchain | Stellar Testnet | Entorno de prueba obligatorio. Donde desplegarás el contrato y harás las transacciones de prueba con XLM y USDC de prueba. |
+| API de Soroban | Soroban RPC URL | Nodo al que envías todas las transacciones firmadas y las consultas de lectura. Es la puerta de entrada a la cadena de Soroban. |
+| Token de Prueba | USDC (Testnet) | Necesitarás la dirección del ID del contrato del token USDC en Testnet para inicializar tu **PrizePool**. |
+
+---
+
+## 4. 📝 Flujo Clave del MVP
+
+El MVP se enfoca en el flujo de lectura/escritura en tiempo real sin necesidad de persistencia histórica (*indexing*).
+
+- **Ver Saldo / Probabilidad:**  
+  El frontend llama a lecturas RPC como `get_balance()` para obtener datos en vivo.
+
+- **Depositar / Retirar:**  
+  El frontend crea una transacción, pide la firma a **Freighter**, y la envía al **Soroban RPC**.
+
+- **Aleatoriedad (Sorteo):**  
+  El *Relayer* mencionado en el flujo completo no es necesario en el MVP.  
+  La función `draw()` puede ser invocada manualmente por el administrador (o por cualquier usuario en la demo) usando `soroban-cli` o una función de admin en la UI, simulando la automatización para la demostración.
+
+---
