@@ -2,38 +2,137 @@
 
 import { useState, useEffect } from "react"
 
-// Placeholder hook for wallet connection
-export function useWallet() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [address, setAddress] = useState("GA...5D")
-  const [balance, setBalance] = useState(25.5)
-  const [network, setNetwork] = useState("Testnet")
+// Types for wallet state
+interface WalletState {
+  isConnected: boolean
+  address: string | null
+  balance: number
+  network: string
+  isLoading: boolean
+  error: string | null
+  isFreighterInstalled: boolean
+}
 
-  // Simulate wallet connection for demo
+export function useWallet() {
+  const [state, setState] = useState<WalletState>({
+    isConnected: false,
+    address: null,
+    balance: 0,
+    network: "Testnet",
+    isLoading: false,
+    error: null,
+    isFreighterInstalled: false,
+  })
+
+  // Check if Freighter wallet is installed
+  const checkFreighterInstallation = () => {
+    // In real implementation, check for window.freighter
+    // For now, randomly simulate installation status
+    const isInstalled = typeof window !== 'undefined' && Math.random() > 0.3
+    setState(prev => ({ ...prev, isFreighterInstalled: isInstalled }))
+    return isInstalled
+  }
+
+  // Initialize wallet check
   useEffect(() => {
-    // In real implementation, check for Freighter wallet
-    const checkWallet = async () => {
-      // Placeholder: simulate connected state
-      setIsConnected(true)
+    const initWallet = async () => {
+      setState(prev => ({ ...prev, isLoading: true }))
+      
+      try {
+        const isFreighterInstalled = checkFreighterInstallation()
+        
+        if (isFreighterInstalled) {
+          // Check if already connected
+          const savedConnection = localStorage.getItem('orbitSave_wallet_connected')
+          if (savedConnection === 'true') {
+            // Simulate reconnection
+            await new Promise(resolve => setTimeout(resolve, 500))
+            setState(prev => ({
+              ...prev,
+              isConnected: true,
+              address: "GA7Q...X5D9",
+              balance: 25.5,
+              isLoading: false
+            }))
+          } else {
+            setState(prev => ({ ...prev, isLoading: false }))
+          }
+        } else {
+          setState(prev => ({ ...prev, isLoading: false }))
+        }
+      } catch (error) {
+        setState(prev => ({
+          ...prev,
+          error: "Error checking wallet connection",
+          isLoading: false
+        }))
+      }
     }
-    checkWallet()
+
+    initWallet()
   }, [])
 
   const connect = async () => {
-    // Placeholder for Freighter connection
-    setIsConnected(true)
+    if (!state.isFreighterInstalled) {
+      setState(prev => ({
+        ...prev,
+        error: "Freighter wallet is not installed"
+      }))
+      return false
+    }
+
+    setState(prev => ({ ...prev, isLoading: true, error: null }))
+
+    try {
+      // Simulate Freighter connection
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // In real implementation:
+      // const result = await window.freighter.connect()
+      // const account = await window.freighter.getPublicKey()
+      
+      const mockAddress = "GA7Q" + Math.random().toString(36).substr(2, 9).toUpperCase() + "X5D9"
+      
+      setState(prev => ({
+        ...prev,
+        isConnected: true,
+        address: mockAddress,
+        balance: Math.floor(Math.random() * 100) + 10,
+        isLoading: false
+      }))
+
+      localStorage.setItem('orbitSave_wallet_connected', 'true')
+      return true
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: "Failed to connect to Freighter wallet",
+        isLoading: false
+      }))
+      return false
+    }
   }
 
   const disconnect = () => {
-    setIsConnected(false)
+    setState(prev => ({
+      ...prev,
+      isConnected: false,
+      address: null,
+      balance: 0,
+      error: null
+    }))
+    localStorage.removeItem('orbitSave_wallet_connected')
+  }
+
+  const installFreighter = () => {
+    window.open('https://freighter.app/', '_blank')
   }
 
   return {
-    isConnected,
-    address,
-    balance,
-    network,
+    ...state,
     connect,
     disconnect,
+    installFreighter,
+    checkFreighterInstallation,
   }
 }

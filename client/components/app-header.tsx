@@ -1,4 +1,5 @@
 import { Rocket } from "lucide-react"
+import { ConnectionStatus, NetworkIndicator } from "./ui-components"
 
 export function AppHeader() {
   return (
@@ -9,6 +10,11 @@ export function AppHeader() {
             <Rocket className="w-4 h-4 text-white" />
           </div>
           <span className="font-display font-bold text-lg text-foreground">OrbitSave</span>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <NetworkIndicator />
+          <ConnectionStatus />
         </div>
       </div>
     </header>
