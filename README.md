@@ -23,7 +23,7 @@ Lotería sin pérdida (Prize-Linked Savings) nativa en Stellar con Soroban. Depo
 - Naming y narrativa listos (OrbitSave + tagline).
 - Benchmark y diferenciadores vs. mercado (PoolTogether, GoodGhosting, etc.).
 - Arquitectura del MVP diseñada (contratos Soroban + frontend React).
-- Skeleton de contrato Soroban (PrizePool) entregado: depósitos/retiros, ventanas de sorteo, commit–reveal, draw con premio simulado, eventos de auditoría.
+- Skeleton de contrato Soroban (PrizePool) entregado: depósitos/retiros, ventanas de sorteo, commit–reveal, draw con premio, eventos de auditoría.
 - Skeleton de frontend Next.js entregado: conexión Freighter, flujo de firma placeholder, UI base.
 - Storyboard de demo listo (sorteo en vivo en testnet, nadie pierde).
 - Enfoque de inclusión financiera y economía local documentado (pools comunitarios, premios patrocinados, canje local).
@@ -42,14 +42,14 @@ MVP (Hackathon):
 - Periodo de sorteo con countdown.
 - Aleatoriedad transparente (commit–reveal básico; mezcla determinística).
 - Selección de ganador ponderada por saldo (en el stub se incluye placeholder; se expandirá).
-- Premio simulado on-chain (APR educativo) o “jackpot patrocinado”.
+- Premio on-chain (APR educativo) o “jackpot patrocinado”.
 - UI: conectar wallet, depositar, ver probabilidad, ver ganador y reclamar premio.
 
 Stretch (post-MVP):
 - Múltiples pools (pequeño/mediano/grande o comunitarios).
 - TWAB (Time-Weighted Average Balance) para evitar “sniping”.
 - Oráculo de aleatoriedad (VRF/drand vía relayer).
-- Integración de rendimiento real (p. ej., YBX) en vez de APR simulado.
+- Integración de rendimiento real (p. ej., YBX) en vez de APR.
 - Badges/NFTs de participación (POAP Stellar) y referidos.
 - Canje de premios en comercios locales vía QR.
 
@@ -58,7 +58,7 @@ Stretch (post-MVP):
 ## Arquitectura
 
 - Smart contracts (Soroban):
-  - PrizePool (núcleo): depósitos/retiros, periodos, commits/reveals, draw, distribución de premios simulados, eventos.
+  - PrizePool (núcleo): depósitos/retiros, periodos, commits/reveals, draw, distribución de premios, eventos.
   - Ticket/SFT (futuro): representación de participación y base para TWAB.
   - RNG Module (MVP): commit–reveal/RANDAO ligero con fallback; roadmap a VRF con oráculo.
   - YieldSourceAdapter (futuro): interfaz a YBX u otras fuentes de rendimiento.
@@ -125,7 +125,7 @@ Métodos principales del `PrizePool` (stub de MVP):
 Notas del stub:
 - Transferencias de token modeladas mínimamente (adapter pendiente).
 - Selección de ganador y TWAB simplificados para la demo inicial.
-- Premio simulado (p. ej., 0.1% por periodo) para propósito educativo.
+- Premio (p. ej., 0.1% por periodo) para propósito educativo.
 
 ---
 
