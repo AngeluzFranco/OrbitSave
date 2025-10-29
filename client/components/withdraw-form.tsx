@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Card } from "@/components/card"
 import { Button } from "@/components/ui/button"
 import { useWallet } from "@/hooks/use-wallet"
+import { useAppState, useBalance } from "@/hooks/use-app-state"
 import { useOrbitSavePool } from "@/hooks/use-orbit-save"
 import { 
   Wallet, 
@@ -24,18 +25,19 @@ interface WithdrawFormProps {
 type WithdrawStatus = 'idle' | 'pending-signature' | 'processing' | 'success' | 'error'
 
 export function WithdrawForm({ onClose, onSuccess }: WithdrawFormProps) {
-  const { balance } = useWallet()
-  const { withdraw, poolData } = useOrbitSavePool()
+  const userBalance = useBalance() // Use the real balance from global state
+  const { withdraw } = useOrbitSavePool()
+  const { addTransaction, updateTransactionStatus } = useAppState()
   
   const [amount, setAmount] = useState("")
   const [status, setStatus] = useState<WithdrawStatus>('idle')
   const [errorMessage, setErrorMessage] = useState("")
 
   const amountValue = parseFloat(amount) || 0
-  const isValidAmount = amountValue > 0 && amountValue <= poolData.userDeposit
+  const isValidAmount = amountValue > 0 && amountValue <= userBalance
 
   const handleWithdrawAll = () => {
-    setAmount(poolData.userDeposit.toString())
+    setAmount(userBalance.toString())
   }
 
   const handleWithdraw = async () => {
@@ -44,6 +46,13 @@ export function WithdrawForm({ onClose, onSuccess }: WithdrawFormProps) {
     try {
       setStatus('pending-signature')
       setErrorMessage("")
+
+      // Add transaction to state immediately as pending
+      const txId = addTransaction({
+        type: 'withdraw',
+        amount: amountValue,
+        status: 'pending'
+      })
 
       // Simulate signature waiting
       await new Promise(resolve => setTimeout(resolve, 2000))
@@ -55,6 +64,11 @@ export function WithdrawForm({ onClose, onSuccess }: WithdrawFormProps) {
       
       if (success) {
         setStatus('success')
+        const mockTxHash = `w1x2y3z4${Math.random().toString(36).substr(2, 6)}`
+        
+        // Update transaction as confirmed
+        updateTransactionStatus(txId, 'confirmed', mockTxHash)
+        
         setTimeout(() => {
           onSuccess?.()
           onClose()
@@ -62,6 +76,7 @@ export function WithdrawForm({ onClose, onSuccess }: WithdrawFormProps) {
       } else {
         setStatus('error')
         setErrorMessage("Error al procesar el retiro")
+        updateTransactionStatus(txId, 'failed')
       }
     } catch (error) {
       setStatus('error')
@@ -174,7 +189,7 @@ export function WithdrawForm({ onClose, onSuccess }: WithdrawFormProps) {
           </div>
           <div className="text-right">
             <div className="text-xl font-bold text-foreground tabular-nums">
-              {poolData.userDeposit.toFixed(2)}
+              {userBalance.toFixed(2)}
             </div>
             <div className="text-xs text-muted-foreground">USDC</div>
           </div>
@@ -191,7 +206,7 @@ export function WithdrawForm({ onClose, onSuccess }: WithdrawFormProps) {
               type="number"
               step="0.01"
               min="0"
-              max={poolData.userDeposit}
+              max={userBalance}
               placeholder="0.00"
               className={`w-full p-4 pr-20 rounded-lg bg-background border text-foreground text-xl font-semibold focus:outline-none focus:ring-2 focus:ring-accent/50 ${
                 amount && !isValidAmount 
@@ -213,11 +228,11 @@ export function WithdrawForm({ onClose, onSuccess }: WithdrawFormProps) {
             variant="outline"
             size="sm"
             onClick={handleWithdrawAll}
-            disabled={isProcessing || status === 'success' || poolData.userDeposit <= 0}
+            disabled={isProcessing || status === 'success' || userBalance <= 0}
             className="w-full"
           >
             <Wallet className="w-4 h-4 mr-2" />
-            Retirar todo ({poolData.userDeposit.toFixed(2)} USDC)
+            Retirar todo ({userBalance.toFixed(2)} USDC)
           </Button>
 
           {/* Validation Messages */}
@@ -228,7 +243,7 @@ export function WithdrawForm({ onClose, onSuccess }: WithdrawFormProps) {
             </div>
           )}
           
-          {amount && amountValue > poolData.userDeposit && (
+          {amount && amountValue > userBalance && (
             <div className="flex items-center gap-2 text-red-500 text-xs">
               <AlertCircle className="w-3 h-3" />
               <span>No puedes retirar más de lo depositado</span>

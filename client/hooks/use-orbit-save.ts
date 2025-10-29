@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useWallet } from "./use-wallet"
 import { useWalletContext } from "@/providers/wallet-provider"
+import { useAppState } from "./use-app-state"
 
 // Types for pool data
 interface PoolData {
@@ -28,8 +29,9 @@ interface Transaction {
 }
 
 export function useOrbitSavePool() {
-  const { isConnected, address } = useWallet()
+  const { isConnected, address, updateBalance, balance } = useWallet()
   const { contract, isContractReady } = useWalletContext()
+  const { state: appState } = useAppState()
   const [poolData, setPoolData] = useState<PoolData>({
     totalDeposited: 8420.50,
     totalParticipants: 187,
@@ -44,7 +46,7 @@ export function useOrbitSavePool() {
 
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([])
 
-  // Load pool data from contract
+  // Load pool data from contract and app state
   useEffect(() => {
     const loadPoolData = async () => {
       if (!isConnected || !contract || !isContractReady) return
@@ -55,21 +57,18 @@ export function useOrbitSavePool() {
         // Get pool info from contract
         const poolInfo = await contract.getPoolInfo()
         
-        // Get user info if connected
-        let userInfo = { deposited: '0', tickets: 0, lastDepositTime: 0 }
-        if (address) {
-          userInfo = await contract.getUserInfo(address)
-        }
-
-        const userDeposit = parseFloat(userInfo.deposited)
-        const userTickets = userInfo.tickets
-        const totalDeposited = parseFloat(poolInfo.totalDeposited)
-        const userProbability = userTickets > 0 ? (userTickets / (poolInfo.totalParticipants * 10)) * 100 : 0
+        // Calculate user stats from app state
+        const userDeposit = appState.totalDeposited
+        const userTickets = appState.totalTickets
+        const totalParticipants = poolInfo.totalParticipants
+        const userProbability = userTickets > 0 && totalParticipants > 0 
+          ? (userTickets / (totalParticipants * 5)) * 100  // Assume average of 5 tickets per participant
+          : 0
 
         setPoolData(prev => ({
           ...prev,
-          totalDeposited,
-          totalParticipants: poolInfo.totalParticipants,
+          totalDeposited: parseFloat(poolInfo.totalDeposited),
+          totalParticipants,
           nextPrizeAmount: parseFloat(poolInfo.prizeAmount),
           nextDrawDate: new Date(poolInfo.nextDrawDate),
           userDeposit,
@@ -78,41 +77,17 @@ export function useOrbitSavePool() {
           isLoading: false
         }))
 
-        // Load transaction history
-        if (userDeposit > 0) {
-          const mockTransactions: Transaction[] = [
-            {
-              id: '1',
-              type: 'deposit',
-              amount: userDeposit * 0.5,
-              date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-              status: 'confirmed',
-              hash: 'a7b8c9...def123'
-            },
-            {
-              id: '2',
-              type: 'deposit',
-              amount: userDeposit * 0.5,
-              date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-              status: 'confirmed',
-              hash: 'x1y2z3...abc456'
-            }
-          ]
+        // Load transaction history from app state
+        const appTransactions = appState.transactions.map(tx => ({
+          id: tx.id,
+          type: tx.type === 'prize_won' ? 'prize' as const : tx.type as 'deposit' | 'withdraw',
+          amount: tx.amount,
+          date: tx.date,
+          status: tx.status,
+          hash: tx.hash
+        }))
 
-          // Add a prize if user has been active
-          if (Math.random() > 0.7) {
-            mockTransactions.unshift({
-              id: '3',
-              type: 'prize',
-              amount: Math.floor(Math.random() * 20) + 5,
-              date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-              status: 'confirmed',
-              hash: 'p7r8i9...zxy012'
-            })
-          }
-
-          setRecentTransactions(mockTransactions)
-        }
+        setRecentTransactions(appTransactions)
 
       } catch (error) {
         setPoolData(prev => ({
@@ -124,7 +99,7 @@ export function useOrbitSavePool() {
     }
 
     loadPoolData()
-  }, [isConnected, address, contract, isContractReady])
+  }, [isConnected, address, contract, isContractReady, appState.totalDeposited, appState.totalTickets, appState.transactions])
 
   const deposit = async (amount: number): Promise<boolean> => {
     if (!isConnected || !contract || !address || amount <= 0) return false
@@ -132,37 +107,16 @@ export function useOrbitSavePool() {
     setPoolData(prev => ({ ...prev, isLoading: true, error: null }))
 
     try {
-      // Create pending transaction
-      const pendingTransaction: Transaction = {
-        id: Date.now().toString(),
-        type: 'deposit',
-        amount,
-        date: new Date(),
-        status: 'pending',
-        hash: 'pending...'
-      }
-
-      setRecentTransactions(prev => [pendingTransaction, ...prev])
-
       // Call contract deposit method
       const result = await contract.deposit(address, amount.toString())
 
       if (result.success) {
-        // Update transaction status
-        setRecentTransactions(prev => 
-          prev.map(tx => 
-            tx.id === pendingTransaction.id 
-              ? { ...tx, status: 'confirmed' as const, hash: result.txHash || 'confirmed' }
-              : tx
-          )
-        )
-
-        // Update pool data
+        // Update pool data optimistically
         setPoolData(prev => {
           const newUserDeposit = prev.userDeposit + amount
-          const newUserTickets = Math.floor(newUserDeposit / 5)
+          const newUserTickets = Math.floor(newUserDeposit)
           const newTotalDeposited = prev.totalDeposited + amount
-          const newProbability = (newUserTickets / (prev.totalParticipants * 10)) * 100
+          const newProbability = newUserTickets > 0 ? (newUserTickets / (prev.totalParticipants * 5)) * 100 : 0
 
           return {
             ...prev,
@@ -174,17 +128,11 @@ export function useOrbitSavePool() {
           }
         })
 
+        // Update wallet balance
+        updateBalance(balance - amount)
+
         return true
       } else {
-        // Update transaction as failed
-        setRecentTransactions(prev => 
-          prev.map(tx => 
-            tx.id === pendingTransaction.id 
-              ? { ...tx, status: 'failed' as const }
-              : tx
-          )
-        )
-        
         setPoolData(prev => ({
           ...prev,
           error: result.error || "Deposit failed",
@@ -209,37 +157,16 @@ export function useOrbitSavePool() {
     setPoolData(prev => ({ ...prev, isLoading: true, error: null }))
 
     try {
-      // Create pending transaction
-      const pendingTransaction: Transaction = {
-        id: Date.now().toString(),
-        type: 'withdraw',
-        amount,
-        date: new Date(),
-        status: 'pending',
-        hash: 'pending...'
-      }
-
-      setRecentTransactions(prev => [pendingTransaction, ...prev])
-
       // Call contract withdraw method
       const result = await contract.withdraw(address, amount.toString())
 
       if (result.success) {
-        // Update transaction status
-        setRecentTransactions(prev => 
-          prev.map(tx => 
-            tx.id === pendingTransaction.id 
-              ? { ...tx, status: 'confirmed' as const, hash: result.txHash || 'confirmed' }
-              : tx
-          )
-        )
-
-        // Update pool data
+        // Update pool data optimistically
         setPoolData(prev => {
           const newUserDeposit = prev.userDeposit - amount
-          const newUserTickets = Math.floor(newUserDeposit / 5)
+          const newUserTickets = Math.floor(newUserDeposit)
           const newTotalDeposited = prev.totalDeposited - amount
-          const newProbability = newUserTickets > 0 ? (newUserTickets / (prev.totalParticipants * 10)) * 100 : 0
+          const newProbability = newUserTickets > 0 ? (newUserTickets / (prev.totalParticipants * 5)) * 100 : 0
 
           return {
             ...prev,
@@ -251,17 +178,11 @@ export function useOrbitSavePool() {
           }
         })
 
+        // Update wallet balance
+        updateBalance(balance + amount)
+
         return true
       } else {
-        // Update transaction as failed
-        setRecentTransactions(prev => 
-          prev.map(tx => 
-            tx.id === pendingTransaction.id 
-              ? { ...tx, status: 'failed' as const }
-              : tx
-          )
-        )
-        
         setPoolData(prev => ({
           ...prev,
           error: result.error || "Withdrawal failed",
@@ -289,12 +210,28 @@ export function useOrbitSavePool() {
         draws: history.map(draw => ({
           date: new Date(draw.date),
           prize: parseFloat(draw.prizeAmount),
-          winners: draw.winnersCount
+          winners: draw.winnersCount,
+          id: draw.id
         }))
       }
     } catch (error) {
       console.error('Error getting pool history:', error)
       return { draws: [] }
+    }
+  }
+
+  // Helper function to get recent activity summary
+  const getActivitySummary = () => {
+    const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const recentTxs = appState.transactions.filter(tx => tx.date >= last7Days)
+    
+    return {
+      totalTransactions: appState.transactions.length,
+      recentTransactions: recentTxs.length,
+      totalPrizesWon: appState.transactions
+        .filter(tx => tx.type === 'prize_won' && tx.status === 'confirmed')
+        .reduce((sum, tx) => sum + tx.amount, 0),
+      lastActivity: appState.lastActivityUpdate
     }
   }
 
@@ -304,5 +241,6 @@ export function useOrbitSavePool() {
     deposit,
     withdraw,
     getPoolHistory,
+    getActivitySummary,
   }
 }

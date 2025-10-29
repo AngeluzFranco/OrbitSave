@@ -5,6 +5,7 @@ import { Card } from "@/components/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useWallet } from "@/hooks/use-wallet"
+import { useAppState } from "@/hooks/use-app-state"
 import { useOrbitSavePool } from "@/hooks/use-orbit-save"
 import { 
   DollarSign, 
@@ -29,6 +30,7 @@ type DepositStatus = 'idle' | 'pending-signature' | 'processing' | 'success' | '
 export function DepositForm({ onClose, onSuccess }: DepositFormProps) {
   const { balance, address } = useWallet()
   const { deposit, poolData } = useOrbitSavePool()
+  const { addTransaction, updateTransactionStatus } = useAppState()
   
   const [amount, setAmount] = useState("")
   const [status, setStatus] = useState<DepositStatus>('idle')
@@ -65,6 +67,14 @@ export function DepositForm({ onClose, onSuccess }: DepositFormProps) {
       setStatus('pending-signature')
       setErrorMessage("")
 
+      // Add transaction to state immediately as pending
+      const txId = addTransaction({
+        type: 'deposit',
+        amount: amountValue,
+        status: 'pending',
+        tickets: Math.floor(amountValue) // 1 ticket per USDC
+      })
+
       // Simulate signature request
       await new Promise(resolve => setTimeout(resolve, 1000))
 
@@ -72,6 +82,7 @@ export function DepositForm({ onClose, onSuccess }: DepositFormProps) {
       if (Math.random() < 0.1) { // 10% chance of rejection for demo
         setStatus('signature-rejected')
         setErrorMessage("Firma rechazada por el usuario")
+        updateTransactionStatus(txId, 'failed')
         return
       }
 
@@ -82,7 +93,11 @@ export function DepositForm({ onClose, onSuccess }: DepositFormProps) {
       
       if (success) {
         setStatus('success')
-        setTxHash(`a7b8c9d0e1f2${Math.random().toString(36).substr(2, 6)}`)
+        const mockTxHash = `a7b8c9d0e1f2${Math.random().toString(36).substr(2, 6)}`
+        setTxHash(mockTxHash)
+        
+        // Update transaction as confirmed
+        updateTransactionStatus(txId, 'confirmed', mockTxHash)
         
         // Auto close after success
         setTimeout(() => {
@@ -92,6 +107,7 @@ export function DepositForm({ onClose, onSuccess }: DepositFormProps) {
       } else {
         setStatus('error')
         setErrorMessage("Error al procesar el depósito")
+        updateTransactionStatus(txId, 'failed')
       }
     } catch (error) {
       setStatus('error')

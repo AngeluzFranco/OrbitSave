@@ -5,6 +5,7 @@ import "./globals.css"
 import { BottomNav } from "@/components/bottom-nav"
 import { AppHeader } from "@/components/app-header"
 import { WalletProvider } from "@/providers/wallet-provider"
+import { AppStateProvider } from "@/hooks/use-app-state"
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
@@ -33,12 +34,14 @@ export default function RootLayout({
     <html lang="es" className="dark">
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
         <WalletProvider>
-          <div className="min-h-screen bg-background text-foreground">
-            <AppHeader />
-            <main className="max-w-2xl mx-auto">{children}</main>
-            <BottomNav />
-          </div>
-          <Toaster />
+          <AppStateProvider>
+            <div className="min-h-screen bg-background text-foreground">
+              <AppHeader />
+              <main className="max-w-2xl mx-auto">{children}</main>
+              <BottomNav />
+            </div>
+            <Toaster />
+          </AppStateProvider>
         </WalletProvider>
       </body>
     </html>

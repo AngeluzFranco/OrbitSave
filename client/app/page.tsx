@@ -4,44 +4,41 @@ import { Card } from "@/components/card"
 import { Button } from "@/components/ui/button"
 import { StatItem } from "@/components/stat-item"
 import { Countdown } from "@/components/countdown"
-import { Onboarding } from "@/components/onboarding"
-import { GuestView } from "@/components/guest-view"
 import { DepositForm } from "@/components/deposit-form"
-import { WithdrawForm } from "@/components/withdraw-form"
 import { TransactionHistory } from "@/components/transaction-history"
 import { PoolStats } from "@/components/pool-stats"
 import { useWallet } from "@/hooks/use-wallet"
+import { useAppState } from "@/hooks/use-app-state"
+import { WithdrawForm } from "@/components/withdraw-form"
 import { useOrbitSavePool } from "@/hooks/use-orbit-save"
 import { Rocket, TrendingUp, Gift, Wallet, Plus, Minus, AlertCircle, DollarSign, Trophy, Target } from "lucide-react"
 
 export default function HomePage() {
   const { isConnected, balance, isLoading: walletLoading, connect } = useWallet()
   const { poolData, deposit, withdraw } = useOrbitSavePool()
-  const [showOnboarding, setShowOnboarding] = useState(!isConnected)
-  const [showGuestView, setShowGuestView] = useState(false)
+  const { state } = useAppState()
   const [activeAction, setActiveAction] = useState<'deposit' | 'withdraw' | null>(null)
 
-  // Show onboarding if not connected and haven't chosen guest mode
-  if (!isConnected && showOnboarding && !showGuestView) {
+  // Simple wallet connection state
+  if (!isConnected) {
     return (
-      <Onboarding 
-        onGuestMode={() => {
-          setShowOnboarding(false)
-          setShowGuestView(true)
-        }}
-      />
-    )
-  }
-
-  // Show guest view if in guest mode
-  if (!isConnected && showGuestView) {
-    return (
-      <GuestView 
-        onConnectWallet={() => {
-          setShowGuestView(false)
-          setShowOnboarding(true)
-        }}
-      />
+      <div className="pb-20 px-4 pt-6 space-y-6">
+        <div className="text-center space-y-4 py-8">
+          <div className="w-16 h-16 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
+            <Wallet className="w-8 h-8 text-primary" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-foreground">Bienvenido a OrbitSave</h1>
+            <p className="text-sm text-muted-foreground">
+              Prize-Linked Savings en Stellar
+            </p>
+          </div>
+          <Button onClick={connect} className="mt-4">
+            <Wallet className="w-4 h-4 mr-2" />
+            Conectar Freighter
+          </Button>
+        </div>
+      </div>
     )
   }
 
@@ -92,7 +89,7 @@ export default function HomePage() {
                 className="flex-1 bg-transparent" 
                 size="lg"
                 onClick={() => setActiveAction('withdraw')}
-                disabled={poolData.isLoading || poolData.userDeposit === 0}
+                disabled={poolData.userDeposit <= 0}
               >
                 <Minus className="w-4 h-4 mr-2" />
                 Retirar
@@ -117,7 +114,7 @@ export default function HomePage() {
             onClose={() => setActiveAction(null)}
             onSuccess={() => {
               // Refresh data or show success message
-              console.log('Withdraw successful')
+              console.log('Withdrawal successful')
             }}
           />
         )}
@@ -289,14 +286,6 @@ export default function HomePage() {
                   Conectar Freighter
                 </>
               )}
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => setShowGuestView(true)}
-              className="w-full" 
-              size="sm"
-            >
-              Explorar como invitado
             </Button>
           </div>
         </div>

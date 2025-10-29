@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAppState } from "./use-app-state"
 
 // Types for wallet state
 interface WalletState {
@@ -14,6 +15,7 @@ interface WalletState {
 }
 
 export function useWallet() {
+  const { resetState } = useAppState()
   const [state, setState] = useState<WalletState>({
     isConnected: false,
     address: null,
@@ -28,7 +30,7 @@ export function useWallet() {
   const checkFreighterInstallation = () => {
     // In real implementation, check for window.freighter
     // For now, randomly simulate installation status
-    const isInstalled = typeof window !== 'undefined' && Math.random() > 0.3
+    const isInstalled = typeof window !== 'undefined' && Math.random() > 0.1
     setState(prev => ({ ...prev, isFreighterInstalled: isInstalled }))
     return isInstalled
   }
@@ -44,14 +46,16 @@ export function useWallet() {
         if (isFreighterInstalled) {
           // Check if already connected
           const savedConnection = localStorage.getItem('orbitSave_wallet_connected')
-          if (savedConnection === 'true') {
+          const savedAddress = localStorage.getItem('orbitSave_wallet_address')
+          
+          if (savedConnection === 'true' && savedAddress) {
             // Simulate reconnection
             await new Promise(resolve => setTimeout(resolve, 500))
             setState(prev => ({
               ...prev,
               isConnected: true,
-              address: "GA7Q...X5D9",
-              balance: 25.5,
+              address: savedAddress,
+              balance: parseFloat(localStorage.getItem('orbitSave_wallet_balance') || '25.5'),
               isLoading: false
             }))
           } else {
@@ -92,16 +96,21 @@ export function useWallet() {
       // const account = await window.freighter.getPublicKey()
       
       const mockAddress = "GA7Q" + Math.random().toString(36).substr(2, 9).toUpperCase() + "X5D9"
+      const mockBalance = Math.floor(Math.random() * 100) + 50
       
       setState(prev => ({
         ...prev,
         isConnected: true,
         address: mockAddress,
-        balance: Math.floor(Math.random() * 100) + 10,
+        balance: mockBalance,
         isLoading: false
       }))
 
+      // Save to localStorage
       localStorage.setItem('orbitSave_wallet_connected', 'true')
+      localStorage.setItem('orbitSave_wallet_address', mockAddress)
+      localStorage.setItem('orbitSave_wallet_balance', mockBalance.toString())
+      
       return true
     } catch (error) {
       setState(prev => ({
@@ -121,7 +130,19 @@ export function useWallet() {
       balance: 0,
       error: null
     }))
+    
+    // Clear localStorage
     localStorage.removeItem('orbitSave_wallet_connected')
+    localStorage.removeItem('orbitSave_wallet_address')
+    localStorage.removeItem('orbitSave_wallet_balance')
+    
+    // Reset app state when disconnecting
+    resetState()
+  }
+
+  const updateBalance = (newBalance: number) => {
+    setState(prev => ({ ...prev, balance: newBalance }))
+    localStorage.setItem('orbitSave_wallet_balance', newBalance.toString())
   }
 
   const installFreighter = () => {
@@ -132,6 +153,7 @@ export function useWallet() {
     ...state,
     connect,
     disconnect,
+    updateBalance,
     installFreighter,
     checkFreighterInstallation,
   }
