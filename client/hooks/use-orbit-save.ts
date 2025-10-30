@@ -31,12 +31,12 @@ interface Transaction {
 export function useOrbitSavePool() {
   const { isConnected, address, updateBalance, balance } = useWallet()
   const { contract, isContractReady } = useWalletContext()
-  const { state: appState } = useAppState()
+  const { state: appState, addTransaction, updateTransactionStatus } = useAppState()
   const [poolData, setPoolData] = useState<PoolData>({
-    totalDeposited: 8420.50,
-    totalParticipants: 187,
-    nextPrizeAmount: 24.7,
-    nextDrawDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+    totalDeposited: 0,
+    totalParticipants: 0,
+    nextPrizeAmount: 0,
+    nextDrawDate: new Date(),
     userDeposit: 0,
     userTickets: 0,
     userProbability: 0,
@@ -49,165 +49,124 @@ export function useOrbitSavePool() {
   // Load pool data from contract and app state
   useEffect(() => {
     const loadPoolData = async () => {
-      if (!isConnected || !contract || !isContractReady) return
+      if (!isConnected || !isContractReady) return
 
       setPoolData(prev => ({ ...prev, isLoading: true, error: null }))
 
       try {
-        // Get pool info from contract
-        const poolInfo = await contract.getPoolInfo()
-        
-        // Calculate user stats from app state
-        const userDeposit = appState.totalDeposited
-        const userTickets = appState.totalTickets
-        const totalParticipants = poolInfo.totalParticipants
-        const userProbability = userTickets > 0 && totalParticipants > 0 
-          ? (userTickets / (totalParticipants * 5)) * 100  // Assume average of 5 tickets per participant
-          : 0
+        // Llamada real al contrato Soroban
+        if (contract && typeof contract.getPoolInfo === "function" && typeof contract.getUserInfo === "function") {
+          const poolInfo = await contract.getPoolInfo()
+          console.log("[Soroban] getPoolInfo result:", poolInfo)
+          let userInfo = { deposited: "0", tickets: 0, lastDepositTime: 0 }
+          if (address) {
+            userInfo = await contract.getUserInfo(address)
+            console.log("[Soroban] getUserInfo result:", userInfo)
+          }
+          const totalParticipants = Number(poolInfo.totalParticipants) || 0
+          const userDeposit = parseFloat(userInfo.deposited) || 0
+          const userTickets = userInfo.tickets || 0
+          const userProbability = userTickets > 0 && totalParticipants > 0
+            ? (userTickets / Math.max(totalParticipants, 1)) * 100
+            : 0
 
-        setPoolData(prev => ({
-          ...prev,
-          totalDeposited: parseFloat(poolInfo.totalDeposited),
-          totalParticipants,
-          nextPrizeAmount: parseFloat(poolInfo.prizeAmount),
-          nextDrawDate: new Date(poolInfo.nextDrawDate),
-          userDeposit,
-          userTickets,
-          userProbability: Math.min(userProbability, 100),
-          isLoading: false
-        }))
+          setPoolData(prev => ({
+            ...prev,
+            totalDeposited: parseFloat(poolInfo.totalDeposited) || 0,
+            totalParticipants,
+            nextPrizeAmount: parseFloat(poolInfo.prizeAmount) || 0,
+            nextDrawDate: poolInfo.nextDrawDate ? new Date(Number(poolInfo.nextDrawDate)) : new Date(),
+            userDeposit,
+            userTickets,
+            userProbability: Math.min(userProbability, 100),
+            isLoading: false,
+            error: null
+          }))
+        }
 
-        // Load transaction history from app state
+        // Map appState transactions to recentTransactions
         const appTransactions = appState.transactions.map(tx => ({
           id: tx.id,
-          type: tx.type === 'prize_won' ? 'prize' as const : tx.type as 'deposit' | 'withdraw',
+          type: tx.type === 'prize_won' ? 'prize' as const : (tx.type === 'deposit' ? 'deposit' as const : 'withdraw' as const),
           amount: tx.amount,
           date: tx.date,
           status: tx.status,
           hash: tx.hash
         }))
 
-        setRecentTransactions(appTransactions)
+        setRecentTransactions(appTransactions.slice(0, 50))
 
-      } catch (error) {
-        setPoolData(prev => ({
-          ...prev,
-          error: "Error loading pool data from contract",
-          isLoading: false
-        }))
+      } catch (err: any) {
+        setPoolData(prev => ({ ...prev, isLoading: false, error: String(err?.message || err) }))
       }
     }
 
     loadPoolData()
-  }, [isConnected, address, contract, isContractReady, appState.totalDeposited, appState.totalTickets, appState.transactions])
 
-  const deposit = async (amount: number): Promise<boolean> => {
-    if (!isConnected || !contract || !address || amount <= 0) return false
+    // Optionally poll every 30 seconds for updates
+    const interval = setInterval(loadPoolData, 30_000)
+    return () => clearInterval(interval)
+  }, [isConnected, isContractReady, contract, appState])
 
-    setPoolData(prev => ({ ...prev, isLoading: true, error: null }))
-
+  // Simulated deposit function: replace with real contract call
+  const deposit = async (amount: number) => {
+    if (!isConnected) throw new Error("Wallet not connected")
+    const txId = addTransaction({
+      type: 'deposit',
+      amount,
+      status: 'pending'
+    })
     try {
-      // Call contract deposit method
-      const result = await contract.deposit(address, amount.toString())
-
-      if (result.success) {
-        // Update pool data optimistically
-        setPoolData(prev => {
-          const newUserDeposit = prev.userDeposit + amount
-          const newUserTickets = Math.floor(newUserDeposit)
-          const newTotalDeposited = prev.totalDeposited + amount
-          const newProbability = newUserTickets > 0 ? (newUserTickets / (prev.totalParticipants * 5)) * 100 : 0
-
-          return {
-            ...prev,
-            userDeposit: newUserDeposit,
-            userTickets: newUserTickets,
-            userProbability: Math.min(newProbability, 100),
-            totalDeposited: newTotalDeposited,
-            isLoading: false
-          }
-        })
-
-        // Update wallet balance
-        updateBalance(balance - amount)
-
+      if (contract && typeof contract.deposit === "function" && address) {
+        // El contrato espera amount como string
+        const res = await contract.deposit(address, amount.toString())
+        updateTransactionStatus(txId, 'confirmed', res || undefined)
+        // Actualizar balance local si es necesario
+        setPoolData(prev => ({ ...prev, userDeposit: prev.userDeposit + amount, totalDeposited: prev.totalDeposited + amount }))
         return true
       } else {
-        setPoolData(prev => ({
-          ...prev,
-          error: result.error || "Deposit failed",
-          isLoading: false
-        }))
-        
-        return false
+        throw new Error("Método deposit no disponible en el contrato o address inválida")
       }
-    } catch (error) {
-      setPoolData(prev => ({
-        ...prev,
-        error: "Error processing deposit",
-        isLoading: false
-      }))
+    } catch (err: any) {
+      updateTransactionStatus(txId, 'failed')
+      setPoolData(prev => ({ ...prev, error: err?.message ? String(err.message) : String(err) }))
       return false
     }
   }
 
-  const withdraw = async (amount: number): Promise<boolean> => {
-    if (!isConnected || !contract || !address || amount <= 0 || amount > poolData.userDeposit) return false
-
-    setPoolData(prev => ({ ...prev, isLoading: true, error: null }))
-
+  const withdraw = async (amount: number) => {
+    if (!isConnected) throw new Error("Wallet not connected")
+    const txId = addTransaction({
+      type: 'withdraw',
+      amount,
+      status: 'pending'
+    })
     try {
-      // Call contract withdraw method
-      const result = await contract.withdraw(address, amount.toString())
-
-      if (result.success) {
-        // Update pool data optimistically
-        setPoolData(prev => {
-          const newUserDeposit = prev.userDeposit - amount
-          const newUserTickets = Math.floor(newUserDeposit)
-          const newTotalDeposited = prev.totalDeposited - amount
-          const newProbability = newUserTickets > 0 ? (newUserTickets / (prev.totalParticipants * 5)) * 100 : 0
-
-          return {
-            ...prev,
-            userDeposit: newUserDeposit,
-            userTickets: newUserTickets,
-            userProbability: Math.min(newProbability, 100),
-            totalDeposited: newTotalDeposited,
-            isLoading: false
-          }
-        })
-
-        // Update wallet balance
-        updateBalance(balance + amount)
-
+      if (contract && typeof contract.withdraw === "function" && address) {
+        // El contrato espera address y amount como string
+        const res = await contract.withdraw(address, amount.toString())
+        updateTransactionStatus(txId, 'confirmed', res || undefined)
+        setPoolData(prev => ({ ...prev, userDeposit: Math.max(0, prev.userDeposit - amount), totalDeposited: Math.max(0, prev.totalDeposited - amount) }))
         return true
       } else {
-        setPoolData(prev => ({
-          ...prev,
-          error: result.error || "Withdrawal failed",
-          isLoading: false
-        }))
-        
-        return false
+        throw new Error("Método withdraw no disponible en el contrato o address inválida")
       }
-    } catch (error) {
-      setPoolData(prev => ({
-        ...prev,
-        error: "Error processing withdrawal",
-        isLoading: false
-      }))
+    } catch (err: any) {
+      updateTransactionStatus(txId, 'failed')
+      setPoolData(prev => ({ ...prev, error: err?.message ? String(err.message) : String(err) }))
       return false
     }
   }
 
   const getPoolHistory = async () => {
-    if (!contract) return { draws: [] }
+    if (!contract || typeof contract.getDrawHistory !== "function") {
+      return { draws: [] }
+    }
     
     try {
       const history = await contract.getDrawHistory()
       return {
-        draws: history.map(draw => ({
+        draws: history.map((draw: any) => ({
           date: new Date(draw.date),
           prize: parseFloat(draw.prizeAmount),
           winners: draw.winnersCount,

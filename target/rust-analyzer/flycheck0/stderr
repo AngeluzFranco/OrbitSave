@@ -1,0 +1,60 @@
+   1.363715300s  INFO prepare_target{force=false package_id=prize-pool v0.1.0 (C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\contracts\prize-pool) target="prize_pool"}: cargo::core::compiler::fingerprint: fingerprint error for prize-pool v0.1.0 (C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\contracts\prize-pool)/Check { test: false }/TargetInner { name_inferred: true, doctest: false, ..: lib_target("prize_pool", ["lib", "cdylib"], "C:\\Users\\cofia\\OneDrive\\Escritorio\\Github Projects\\stellar\\soroban-pool\\contracts\\prize-pool\\src\\lib.rs", Edition2021) }
+   1.364158000s  INFO prepare_target{force=false package_id=prize-pool v0.1.0 (C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\contracts\prize-pool) target="prize_pool"}: cargo::core::compiler::fingerprint:     err: failed to read `C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\target\debug\.fingerprint\prize-pool-b6fc4ffe5a186072\lib-prize_pool`
+
+Caused by:
+    El sistema no puede encontrar el archivo especificado. (os error 2)
+
+Stack backtrace:
+   0: git_midx_writer_dump
+   1: git_midx_writer_dump
+   2: git_midx_writer_dump
+   3: git_midx_writer_dump
+   4: git_filter_source_repo
+   5: git_filter_source_path
+   6: git_filter_source_path
+   7: git_filter_source_path
+   8: git_filter_source_path
+   9: git_filter_source_repo
+  10: git_filter_source_repo
+  11: git_filter_source_repo
+  12: git_filter_source_repo
+  13: git_filter_source_repo
+  14: <unknown>
+  15: <unknown>
+  16: git_midx_writer_dump
+  17: git_filter_source_repo
+  18: git_midx_writer_dump
+  19: BaseThreadInitThunk
+  20: RtlUserThreadStart
+   1.386776700s  INFO prepare_target{force=false package_id=prize-pool v0.1.0 (C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\contracts\prize-pool) target="prize_pool"}: cargo::core::compiler::fingerprint: fingerprint error for prize-pool v0.1.0 (C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\contracts\prize-pool)/Check { test: true }/TargetInner { name_inferred: true, doctest: false, ..: lib_target("prize_pool", ["lib", "cdylib"], "C:\\Users\\cofia\\OneDrive\\Escritorio\\Github Projects\\stellar\\soroban-pool\\contracts\\prize-pool\\src\\lib.rs", Edition2021) }
+   1.386801100s  INFO prepare_target{force=false package_id=prize-pool v0.1.0 (C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\contracts\prize-pool) target="prize_pool"}: cargo::core::compiler::fingerprint:     err: failed to read `C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\target\debug\.fingerprint\prize-pool-fcfd3edd59d91aa7\test-lib-prize_pool`
+
+Caused by:
+    El sistema no puede encontrar el archivo especificado. (os error 2)
+
+Stack backtrace:
+   0: git_midx_writer_dump
+   1: git_midx_writer_dump
+   2: git_midx_writer_dump
+   3: git_midx_writer_dump
+   4: git_filter_source_repo
+   5: git_filter_source_path
+   6: git_filter_source_path
+   7: git_filter_source_path
+   8: git_filter_source_path
+   9: git_filter_source_repo
+  10: git_filter_source_repo
+  11: git_filter_source_repo
+  12: git_filter_source_repo
+  13: git_filter_source_repo
+  14: <unknown>
+  15: <unknown>
+  16: git_midx_writer_dump
+  17: git_filter_source_repo
+  18: git_midx_writer_dump
+  19: BaseThreadInitThunk
+  20: RtlUserThreadStart
+    Checking prize-pool v0.1.0 (C:\Users\cofia\OneDrive\Escritorio\Github Projects\stellar\soroban-pool\contracts\prize-pool)
+error: could not compile `prize-pool` (lib) due to 13 previous errors; 8 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `prize-pool` (lib test) due to 18 previous errors; 13 warnings emitted

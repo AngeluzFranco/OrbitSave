@@ -32,42 +32,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const initializeApp = async () => {
+  useEffect(() => {
     try {
       setError(null)
-      
-      // Initialize contract
-      const contractInstance = new OrbitSaveContract(TESTNET_CONFIG)
-      const contractReady = await contractInstance.initializeContract()
-      
-      if (contractReady) {
-        setContract(contractInstance)
-        setIsContractReady(true)
-        setIsInitialized(true)
-      } else {
-        throw new Error("Failed to initialize contract")
-      }
+      // Obtener datos de entorno
+      const contractId = process.env.NEXT_PUBLIC_CONTRACT_ID || ''
+      const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://soroban-testnet-rpc.stellar.org'
+      // Instanciar wrapper real
+      const contractInstance = new OrbitSaveContract(contractId, rpcUrl)
+      setContract(contractInstance)
+      setIsContractReady(true)
+      setIsInitialized(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to initialize app")
+      setError(err instanceof Error ? err.message : 'Failed to initialize contract')
       setIsInitialized(false)
     }
-  }
-
-  const resetError = () => {
-    setError(null)
-  }
-
-  // Initialize on mount
-  useEffect(() => {
-    initializeApp()
   }, [])
+
+  const resetError = () => setError(null)
 
   const value: WalletContextType = {
     contract,
     isContractReady,
     isInitialized,
     error,
-    initializeApp,
+    initializeApp: async () => {},
     resetError,
   }
 

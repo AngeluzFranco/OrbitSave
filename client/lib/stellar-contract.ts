@@ -1,5 +1,7 @@
 // Stellar and Soroban contract utilities for OrbitSave
 
+import { Contract, SorobanRpc } from "soroban-client"
+
 export interface ContractConfig {
   contractId: string
   networkPassphrase: string
@@ -39,96 +41,56 @@ export interface PoolContractMethods {
 }
 
 export class OrbitSaveContract {
-  private config: ContractConfig
-  
+  private config: ContractConfig;
+  contract: Contract;
+  rpc: SorobanRpc;
+
   constructor(config: ContractConfig) {
-    this.config = config
+    this.config = config;
+    this.contract = new Contract(config.contractId);
+    this.rpc = new SorobanRpc(config.rpcUrl);
   }
 
-  async initializeContract(): Promise<boolean> {
+  async withdraw(address: string, amount: string) {
     try {
-      // In a real implementation, this would:
-      // 1. Load the Stellar SDK
-      // 2. Create a Server instance
-      // 3. Load the contract WASM and interface
-      // 4. Prepare contract methods
-      
-      console.log('Initializing OrbitSave contract...')
-      return true
-    } catch (error) {
-      console.error('Failed to initialize contract:', error)
-      return false
+      const result = await this.rpc.sendTransaction({
+        contractId: this.contract.contractId,
+        function: 'withdraw',
+        args: [address, amount]
+      });
+      return result;
+    } catch (err) {
+      throw new Error('Error al retirar: ' + err);
     }
   }
 
-  async deposit(userAddress: string, amount: string): Promise<{
-    success: boolean
-    txHash?: string
-    error?: string
-  }> {
+      async getPoolInfo() {
     try {
-      // Simulate contract interaction
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // In real implementation:
-      // 1. Create transaction with contract.call('deposit', amount)
-      // 2. Sign with Freighter
-      // 3. Submit to network
-      // 4. Return transaction hash
-      
-      const mockTxHash = 'a7b8c9d0e1f2' + Math.random().toString(36).substr(2, 6)
-      
-      return {
-        success: true,
-        txHash: mockTxHash
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
+      const result = await this.rpc.callContractFunction({
+        contractId: this.contract.contractId,
+        function: 'get_pool_info',
+        args: []
+      });
+      return result;
+    } catch (err) {
+      throw new Error('Error al obtener info del pool: ' + err);
     }
-  }
+      }
 
-  async withdraw(userAddress: string, amount: string): Promise<{
-    success: boolean
-    txHash?: string
-    error?: string
-  }> {
-    try {
-      // Simulate contract interaction
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      const mockTxHash = 'w7x8y9z0a1b2' + Math.random().toString(36).substr(2, 6)
-      
-      return {
-        success: true,
-        txHash: mockTxHash
+      async deposit(address: string, amount: string) {
+        try {
+          const result = await this.rpc.sendTransaction({
+            contractId: this.contract.contractId,
+            function: 'deposit',
+            args: [address, amount]
+          })
+          return result
+        } catch (err) {
+          throw new Error('Error al depositar: ' + err)
+        }
       }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
-    }
-  }
 
-  async getPoolInfo(): Promise<{
-    totalDeposited: string
-    totalParticipants: number
-    nextDrawDate: number
-    prizeAmount: string
-  }> {
-    // Simulate contract read
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    return {
-      totalDeposited: '8420.50',
-      totalParticipants: 187,
-      nextDrawDate: Date.now() + (4 * 24 * 60 * 60 * 1000), // 4 days from now
-      prizeAmount: '24.7'
-    }
-  }
+
 
   async getUserInfo(userAddress: string): Promise<{
     deposited: string

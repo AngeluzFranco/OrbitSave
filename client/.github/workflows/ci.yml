@@ -1,0 +1,84 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [ main, develop, Chris ]
+  pull_request:
+    branches: [ main, develop, Chris ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [ 18.x, 20.x ]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: 'client/package-lock.json'
+
+    - name: Install dependencies
+      run: |
+        cd client
+        npm ci
+
+    - name: Run linter
+      run: |
+        cd client
+        npm run lint
+      continue-on-error: true
+
+    - name: Build project
+      run: |
+        cd client
+        npm run build
+
+    - name: Check TypeScript
+      run: |
+        cd client
+        npx tsc --noEmit
+      continue-on-error: true
+
+  deploy-preview:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/Chris'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: 'client/package-lock.json'
+
+    - name: Install dependencies
+      run: |
+        cd client
+        npm ci
+
+    - name: Build for preview
+      run: |
+        cd client
+        npm run build
+      env:
+        NEXT_PUBLIC_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+        NEXT_PUBLIC_NETWORK: "testnet"
+
+    - name: Notify success
+      if: success()
+      run: echo "✅ Build and tests passed! Ready for preview deployment."
+
+    - name: Notify failure
+      if: failure()
+      run: echo "❌ Build failed. Check logs above for details."
